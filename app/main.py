@@ -2,8 +2,8 @@ import uvicorn
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from typing import Optional, Union
 import base64
-from .models import OCRRequest, SlideMatchRequest, DetectionRequest, APIResponse
-from .services import ocr_service
+from models import OCRRequest, SlideMatchRequest, DetectionRequest, APIResponse
+from services import ocr_service
 
 app = FastAPI()
 
@@ -15,7 +15,11 @@ async def decode_image(image: Union[UploadFile, StarletteUploadFile, str, None])
         raise HTTPException(status_code=400, detail="No image provided")
 
     if isinstance(image, (UploadFile, StarletteUploadFile)):
-        return await image.read()
+        content = await image.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+        return content
+
     elif isinstance(image, str):
         try:
             # 检查是否是 base64 编码的图片
@@ -54,10 +58,10 @@ async def slide_match_endpoint(
         background_file: Optional[UploadFile] = File(None),
         target: Optional[str] = Form(None),
         background: Optional[str] = Form(None),
-        simple_target: bool = Form(False)
+        simple_target: bool = Form(True)
 ):
     try:
-        if (background is None and target is None) or (background_file.size == 0 and target_file.size == 0):
+        if (target_file is None and target is None) or (background_file is None and background is None):
             return APIResponse(code=400, message="Both target and background must be provided")
 
         target_bytes = await decode_image(target_file or target)
